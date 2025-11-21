@@ -10,7 +10,7 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.nguyentruongvu.7c2a4f42",
+      "bundleIdentifier": "com.rapou7.budtracker",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       }
