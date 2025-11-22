@@ -3,6 +3,9 @@ name: iOS-ipa-build
 on:
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build-ios:
     name: 🎉 iOS Build
@@ -60,4 +63,5 @@ jobs:
           file: ios/build/Build/Products/Release-iphoneos/BudTracker.ipa
           tag: v1.0
           overwrite: true
+          make_latest: true
           body: "Unsigned iOS build for sideloading"
