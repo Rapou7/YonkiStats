@@ -1,17 +1,14 @@
-name: Build Unsigned iOS IPA
+name: iOS-ipa-build
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - main
 
 jobs:
-  build:
-    name: Build Unsigned IPA
+  build-ios:
+    name: 🎉 iOS Build
     runs-on: macos-latest
     steps:
-      - name: 🏗 Setup repo
+      - name: 🏗 Checkout code
         uses: actions/checkout@v4
 
       - name: 🏗 Setup Node
@@ -20,20 +17,17 @@ jobs:
           node-version: 20.x
           cache: npm
 
-      - name: 🏗 Setup EAS
-        uses: expo/expo-github-action@v8
-        with:
-          expo-version: false
-          eas-version: latest
-          token: ${{ secrets.EXPO_TOKEN }}
-
       - name: 📦 Install dependencies
         run: npm install
 
       - name: ⚙️ Prebuild (Generate Native Code)
         run: npx expo prebuild --platform ios --no-install
 
-      - name: 🔨 Build App (Unsigned)
+      - name: 📦 Update CocoaPods repo
+        run: pod repo update
+        working-directory: ios
+
+      - name: 🔨 Build iOS (No Code Sign)
         run: |
           xcodebuild -workspace ios/BudTracker.xcworkspace \
             -scheme BudTracker \
@@ -43,14 +37,23 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO
 
-      - name: 📦 Package IPA
-        run: |
-          mkdir Payload
-          mv ios/build/Build/Products/Release-iphoneos/BudTracker.app Payload/
-          zip -r BudTracker.ipa Payload
+      - name: 📁 Create Payload directory
+        run: mkdir Payload
+        working-directory: ios/build/Build/Products/Release-iphoneos
 
-      - name: 📤 Upload Artifact
-        uses: actions/upload-artifact@v4
+      - name: 📦 Move app to Payload
+        run: mv BudTracker.app/ Payload
+        working-directory: ios/build/Build/Products/Release-iphoneos
+
+      - name: 🤐 Zip IPA
+        run: zip -qq -r -9 BudTracker.ipa Payload
+        working-directory: ios/build/Build/Products/Release-iphoneos
+
+      - name: 📤 Upload to release
+        uses: svenstaro/upload-release-action@v2
         with:
-          name: app-release
-          path: BudTracker.ipa
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: ios/build/Build/Products/Release-iphoneos/BudTracker.ipa
+          tag: v1.0
+          overwrite: true
+          body: "Unsigned iOS build for sideloading"
