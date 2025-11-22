@@ -1,0 +1,56 @@
+name: Build Unsigned iOS IPA
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    name: Build Unsigned IPA
+    runs-on: macos-latest
+    steps:
+      - name: 🏗 Setup repo
+        uses: actions/checkout@v4
+
+      - name: 🏗 Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18.x
+          cache: npm
+
+      - name: 🏗 Setup EAS
+        uses: expo/expo-github-action@v8
+        with:
+          expo-version: latest
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: 📦 Install dependencies
+        run: npm install
+
+      - name: ⚙️ Prebuild (Generate Native Code)
+        run: npx expo prebuild --platform ios --no-install
+
+      - name: 🔨 Build App (Unsigned)
+        run: |
+          xcodebuild -workspace ios/BudTracker.xcworkspace \
+            -scheme BudTracker \
+            -configuration Release \
+            -sdk iphoneos \
+            -derivedDataPath ios/build \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO
+
+      - name: 📦 Package IPA
+        run: |
+          mkdir Payload
+          mv ios/build/Build/Products/Release-iphoneos/BudTracker.app Payload/
+          zip -r BudTracker.ipa Payload
+
+      - name: 📤 Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-release
+          path: BudTracker.ipa
