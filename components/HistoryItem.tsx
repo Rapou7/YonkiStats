@@ -3,6 +3,8 @@ import { View, Text, StyleSheet, Animated, Alert, TouchableHighlight } from 'rea
 import { Swipeable } from 'react-native-gesture-handler';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../constants/Colors';
+import { useLanguage } from '../context/LanguageContext';
+import { useThemeColor } from '../context/ThemeContext';
 import { Entry } from '../utils/storage';
 
 interface HistoryItemProps {
@@ -12,6 +14,8 @@ interface HistoryItemProps {
 }
 
 export default function HistoryItem({ item, onDelete, onPress }: HistoryItemProps) {
+    const { i18n } = useLanguage();
+    const { primaryColor } = useThemeColor();
     const swipeableRef = useRef<Swipeable>(null);
     const rowHeight = useRef(new Animated.Value(1)).current;
     const opacity = useRef(new Animated.Value(1)).current;
@@ -44,15 +48,15 @@ export default function HistoryItem({ item, onDelete, onPress }: HistoryItemProp
         swipeableRef.current?.close();
 
         Alert.alert(
-            'Delete Entry',
-            'Are you sure you want to delete this entry?',
+            i18n.t('common.delete'),
+            i18n.t('dashboard.removeFavoriteConfirm'), // Reusing confirm message or add specific one
             [
                 {
-                    text: 'Cancel',
+                    text: i18n.t('common.cancel'),
                     style: 'cancel',
                 },
                 {
-                    text: 'Delete',
+                    text: i18n.t('common.delete'),
                     style: 'destructive',
                     onPress: () => {
                         // Animate out
@@ -105,13 +109,13 @@ export default function HistoryItem({ item, onDelete, onPress }: HistoryItemProp
                 >
                     <View style={styles.item}>
                         <View>
-                            <Text style={styles.itemCategory}>{item.category || 'Weed'}</Text>
+                            <Text style={[styles.itemCategory, { color: primaryColor }]}>{item.category || 'Weed'}</Text>
                             <Text style={styles.itemType}>{item.type}</Text>
                             <Text style={styles.itemSource}>{item.source}</Text>
                             <Text style={styles.itemDate}>{new Date(item.date).toLocaleDateString()}</Text>
                         </View>
                         <View style={{ alignItems: 'flex-end' }}>
-                            <Text style={styles.itemPrice}>{item.amountSpent.toFixed(2).replace('.', ',')} €</Text>
+                            <Text style={[styles.itemPrice, { color: primaryColor }]}>{item.amountSpent.toFixed(2).replace('.', ',')} €</Text>
                             {item.category === 'Weed' && (
                                 <Text style={styles.itemGrams}>{item.grams}g</Text>
                             )}
@@ -141,7 +145,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     itemCategory: {
-        color: Colors.dark.primary,
+        color: Colors.dark.primary, // Keeping this static or should it be dynamic? Let's use dynamic inline style if needed, but here it's static style.
         fontSize: 12,
         fontWeight: 'bold',
         marginBottom: 2,

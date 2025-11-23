@@ -1,15 +1,18 @@
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions, Animated } from 'react-native';
 import { useFocusEffect } from 'expo-router';
-import { useCallback, useState, useRef, useEffect } from 'react';
+import { useCallback, useState, useRef, useEffect, useMemo } from 'react';
 import { Colors } from '../../constants/Colors';
+import { useLanguage } from '../../context/LanguageContext';
+import { useThemeColor } from '../../context/ThemeContext';
 import { Storage, Entry } from '../../utils/storage';
 import { LineChart } from 'react-native-gifted-charts';
-import { FadeInView } from '../../components/FadeInView';
 import { StaggeredFadeInView } from '../../components/StaggeredFadeInView';
 
 type Period = '7d' | '30d' | '90d';
 
 export default function StatsScreen() {
+    const { i18n } = useLanguage();
+    const { primaryColor } = useThemeColor();
     const [entries, setEntries] = useState<Entry[]>([]);
     const [period, setPeriod] = useState<Period>('7d');
     const [displayedPeriod, setDisplayedPeriod] = useState<Period>('7d');
@@ -52,16 +55,16 @@ export default function StatsScreen() {
                 }, 50);
             });
         }
-    }, [period]);
+    }, [period, displayedPeriod, fadeAnim]);
 
-    const getFilteredEntries = (days: number) => {
+    const getFilteredEntries = useCallback((days: number) => {
         const cutoff = new Date();
         cutoff.setDate(cutoff.getDate() - days);
         return entries.filter(e => new Date(e.date) >= cutoff);
-    };
+    }, [entries]);
 
     // Cumulative Chart Data Generation
-    const getCumulativeChartData = () => {
+    const chartData = useMemo(() => {
         const days = displayedPeriod === '7d' ? 7 : displayedPeriod === '30d' ? 30 : 90;
         const filtered = getFilteredEntries(days);
 
@@ -114,20 +117,26 @@ export default function StatsScreen() {
         }
 
         return dataPoints;
-    };
+    }, [displayedPeriod, getFilteredEntries]);
 
-    const chartData = getCumulativeChartData();
     const screenWidth = Dimensions.get('window').width;
 
-    const calculateTotal = (days: number) => {
-        return getFilteredEntries(days).reduce((sum, e) => sum + e.amountSpent, 0);
-    };
+    const totals = useMemo(() => {
+        const calculate = (days: number) => getFilteredEntries(days).reduce((sum, e) => sum + e.amountSpent, 0);
+        return {
+            d7: calculate(7),
+            d30: calculate(30),
+            d90: calculate(90)
+        };
+    }, [getFilteredEntries]);
+
+    const currentTotal = period === '7d' ? totals.d7 : period === '30d' ? totals.d30 : totals.d90;
 
     return (
         <View style={styles.container}>
             <ScrollView contentContainerStyle={styles.content} scrollEnabled={scrollEnabled}>
                 <StaggeredFadeInView key={`title-${viewKey}`} delay={0}>
-                    <Text style={styles.title}>Spending Analysis</Text>
+                    <Text style={styles.title}>{i18n.t('stats.title')}</Text>
                 </StaggeredFadeInView>
 
                 {/* Period Selector */}
@@ -136,7 +145,7 @@ export default function StatsScreen() {
                         {(['7d', '30d', '90d'] as Period[]).map((p) => (
                             <TouchableOpacity
                                 key={p}
-                                style={[styles.periodButton, period === p && styles.periodButtonActive]}
+                                style={[styles.periodButton, period === p && { backgroundColor: primaryColor, shadowColor: primaryColor }]}
                                 onPress={() => setPeriod(p)}
                             >
                                 <Text style={[styles.periodButtonText, period === p && styles.periodButtonTextActive]}>
@@ -150,7 +159,7 @@ export default function StatsScreen() {
                 {/* Main Chart */}
                 <StaggeredFadeInView key={`chart-${viewKey}`} delay={100}>
                     <View style={styles.chartCard}>
-                        <Text style={styles.chartTitle}>Total Spent: {calculateTotal(period === '7d' ? 7 : period === '30d' ? 30 : 90).toFixed(2).replace('.', ',')} €</Text>
+                        <Text style={styles.chartTitle}>{i18n.t('stats.totalSpent')} {currentTotal.toFixed(2).replace('.', ',')} €</Text>
                         <Animated.View
                             style={[{ opacity: fadeAnim }]}
                             onTouchStart={() => setScrollEnabled(false)}
@@ -161,14 +170,14 @@ export default function StatsScreen() {
                                 data={chartData}
                                 areaChart
                                 isAnimated={false}
-                                startFillColor={Colors.dark.primary}
+                                startFillColor={primaryColor}
                                 startOpacity={0.8}
-                                endFillColor={Colors.dark.primary}
+                                endFillColor={primaryColor}
                                 endOpacity={0.3}
-                                color={Colors.dark.primary}
+                                color={primaryColor}
                                 thickness={3}
                                 hideDataPoints={displayedPeriod !== '7d'}
-                                dataPointsColor={Colors.dark.primary}
+                                dataPointsColor={primaryColor}
                                 dataPointsRadius={4}
                                 width={screenWidth - 70}
                                 height={220}
@@ -217,22 +226,22 @@ export default function StatsScreen() {
 
                 {/* Detailed Stats */}
                 <StaggeredFadeInView key={`breakdown-${viewKey}`} delay={150}>
-                    <Text style={styles.sectionTitle}>Period Breakdown</Text>
+                    <Text style={styles.sectionTitle}>{i18n.t('stats.periodBreakdown')}</Text>
                 </StaggeredFadeInView>
 
                 <StaggeredFadeInView key={`grid-${viewKey}`} delay={200}>
                     <View style={styles.statsGrid}>
                         <View style={styles.statCard}>
-                            <Text style={styles.statLabel}>7 Days</Text>
-                            <Text style={styles.statValue}>{calculateTotal(7).toFixed(2).replace('.', ',')} €</Text>
+                            <Text style={styles.statLabel}>{i18n.t('stats.days7')}</Text>
+                            <Text style={styles.statValue}>{totals.d7.toFixed(2).replace('.', ',')} €</Text>
                         </View>
                         <View style={styles.statCard}>
-                            <Text style={styles.statLabel}>30 Days</Text>
-                            <Text style={styles.statValue}>{calculateTotal(30).toFixed(2).replace('.', ',')} €</Text>
+                            <Text style={styles.statLabel}>{i18n.t('stats.days30')}</Text>
+                            <Text style={styles.statValue}>{totals.d30.toFixed(2).replace('.', ',')} €</Text>
                         </View>
                         <View style={styles.statCard}>
-                            <Text style={styles.statLabel}>90 Days</Text>
-                            <Text style={styles.statValue}>{calculateTotal(90).toFixed(2).replace('.', ',')} €</Text>
+                            <Text style={styles.statLabel}>{i18n.t('stats.days90')}</Text>
+                            <Text style={styles.statValue}>{totals.d90.toFixed(2).replace('.', ',')} €</Text>
                         </View>
                     </View>
                 </StaggeredFadeInView>
@@ -270,14 +279,6 @@ const styles = StyleSheet.create({
         paddingVertical: 12,
         alignItems: 'center',
         borderRadius: 12,
-    },
-    periodButtonActive: {
-        backgroundColor: Colors.dark.primary,
-        shadowColor: Colors.dark.primary,
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.3,
-        shadowRadius: 4,
-        elevation: 3,
     },
     periodButtonText: {
         color: Colors.dark.textSecondary,

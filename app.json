@@ -1,16 +1,16 @@
 {
   "expo": {
-    "name": "BudTracker",
-    "slug": "BudTracker",
+    "name": "Yonki Stats",
+    "slug": "yonki-stats",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "budtracker",
+    "scheme": "yonkistats",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.rapou7.budtracker",
+      "bundleIdentifier": "com.rapou7.yonkistats",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       }

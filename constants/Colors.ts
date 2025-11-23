@@ -10,3 +10,11 @@ export const Colors = {
         error: '#CF6679',
     },
 };
+
+export const CategoryColors = {
+    Weed: '#00E676',      // Green
+    Alcohol: '#FF6B6B',   // Red
+    Tobacco: '#FFA726',   // Orange
+    Food: '#FFD54F',      // Yellow
+    Other: '#42A5F5',     // Blue
+} as const;

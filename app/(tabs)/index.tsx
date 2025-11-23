@@ -2,6 +2,8 @@ import { View, Text, StyleSheet, FlatList, TouchableOpacity, RefreshControl, Dim
 import { Link, useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState, useRef } from 'react';
 import { Colors } from '../../constants/Colors';
+import { useLanguage } from '../../context/LanguageContext';
+import { useThemeColor } from '../../context/ThemeContext';
 import { Storage, Entry } from '../../utils/storage';
 import Heatmap from '../../components/Heatmap';
 import HistoryItem from '../../components/HistoryItem';
@@ -11,6 +13,8 @@ import { StaggeredFadeInView } from '../../components/StaggeredFadeInView';
 
 export default function Dashboard() {
   const router = useRouter();
+  const { i18n } = useLanguage();
+  const { primaryColor } = useThemeColor();
   const [entries, setEntries] = useState<Entry[]>([]);
   const [favorites, setFavorites] = useState<Entry[]>([]);
   const [refreshing, setRefreshing] = useState(false);
@@ -51,12 +55,12 @@ export default function Dashboard() {
 
   const handleQuickAdd = (favorite: Entry) => {
     Alert.alert(
-      'Quick Add',
-      `Add entry for ${favorite.amountSpent.toFixed(2).replace('.', ',')} € (${favorite.grams}g)?`,
+      i18n.t('dashboard.quickAdd'),
+      `${i18n.t('dashboard.quickAddConfirm')} ${favorite.amountSpent.toFixed(2).replace('.', ',')} € (${favorite.grams}g)?`,
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: i18n.t('common.cancel'), style: 'cancel' },
         {
-          text: 'Add',
+          text: i18n.t('common.add'),
           onPress: async () => {
             try {
               await Storage.addEntry({
@@ -65,7 +69,7 @@ export default function Dashboard() {
               });
               await loadData();
             } catch (e) {
-              Alert.alert('Error', 'Failed to add entry');
+              Alert.alert(i18n.t('common.error'), i18n.t('dashboard.failedToAdd'));
             }
           },
         },
@@ -75,19 +79,19 @@ export default function Dashboard() {
 
   const handleRemoveFavorite = (favorite: Entry) => {
     Alert.alert(
-      'Remove Favorite',
-      'Are you sure you want to remove this favorite?',
+      i18n.t('dashboard.removeFavorite'),
+      i18n.t('dashboard.removeFavoriteConfirm'),
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: i18n.t('common.cancel'), style: 'cancel' },
         {
-          text: 'Remove',
+          text: i18n.t('common.remove'),
           style: 'destructive',
           onPress: async () => {
             try {
               await Storage.removeFavorite(favorite.id);
               await loadData();
             } catch (e) {
-              Alert.alert('Error', 'Failed to remove favorite');
+              Alert.alert(i18n.t('common.error'), i18n.t('dashboard.failedToRemove'));
             }
           },
         },
@@ -106,33 +110,33 @@ export default function Dashboard() {
   const headerComponent = (
     <View style={styles.headerContainer}>
       <StaggeredFadeInView key={`greet-${viewKey}`} delay={0}>
-        <Text style={styles.greeting}>Welcome Back</Text>
+        <Text style={styles.greeting}>{i18n.t('dashboard.welcome')}</Text>
       </StaggeredFadeInView>
 
       <StaggeredFadeInView key={`stats-${viewKey}`} delay={50}>
         <View style={styles.statsRow}>
           <View style={styles.card}>
-            <Text style={styles.cardLabel}>Total Spent</Text>
-            <Text style={styles.cardValue}>{totalSpent.toFixed(2).replace('.', ',')} €</Text>
+            <Text style={styles.cardLabel}>{i18n.t('dashboard.totalSpent')}</Text>
+            <Text style={[styles.cardValue, { color: primaryColor }]}>{totalSpent.toFixed(2).replace('.', ',')} €</Text>
           </View>
           <View style={styles.card}>
-            <Text style={styles.cardLabel}>Total Grams</Text>
-            <Text style={styles.cardValue}>{totalGrams.toFixed(1).replace('.', ',')}g</Text>
+            <Text style={styles.cardLabel}>{i18n.t('dashboard.totalGrams')}</Text>
+            <Text style={[styles.cardValue, { color: primaryColor }]}>{totalGrams.toFixed(1).replace('.', ',')}g</Text>
           </View>
         </View>
       </StaggeredFadeInView>
 
       <StaggeredFadeInView key={`avg-${viewKey}`} delay={100}>
         <View style={styles.fullCard}>
-          <Text style={styles.cardLabel}>Avg Monthly Spend</Text>
-          <Text style={styles.cardValue}>{avgMonthlySpend.toFixed(2).replace('.', ',')} €</Text>
+          <Text style={styles.cardLabel}>{i18n.t('dashboard.avgMonthlySpend')}</Text>
+          <Text style={[styles.cardValue, { color: primaryColor }]}>{avgMonthlySpend.toFixed(2).replace('.', ',')} €</Text>
         </View>
       </StaggeredFadeInView>
 
       {favorites.length > 0 && (
         <StaggeredFadeInView key={`favs-${viewKey}`} delay={150}>
           <>
-            <Text style={styles.sectionTitle}>Favorites</Text>
+            <Text style={styles.sectionTitle}>{i18n.t('dashboard.favorites')}</Text>
             <View style={styles.favoritesContainer}>
               {favorites.map((fav) => (
                 <TouchableOpacity
@@ -142,7 +146,7 @@ export default function Dashboard() {
                   onLongPress={() => handleRemoveFavorite(fav)}
                 >
                   <Text style={styles.favoriteButtonText}>{fav.type}</Text>
-                  <Text style={styles.favoriteButtonSubtext}>{fav.amountSpent.toFixed(2).replace('.', ',')} €</Text>
+                  <Text style={[styles.favoriteButtonSubtext, { color: primaryColor }]}>{fav.amountSpent.toFixed(2).replace('.', ',')} €</Text>
                 </TouchableOpacity>
               ))}
             </View>
@@ -151,7 +155,7 @@ export default function Dashboard() {
       )}
 
       <StaggeredFadeInView key={`cal-title-${viewKey}`} delay={favorites.length > 0 ? 200 : 150}>
-        <Text style={styles.sectionTitle}>Activity Calendar</Text>
+        <Text style={styles.sectionTitle}>{i18n.t('dashboard.activityCalendar')}</Text>
       </StaggeredFadeInView>
 
       <StaggeredFadeInView key={`cal-${viewKey}`} delay={favorites.length > 0 ? 250 : 200}>
@@ -169,7 +173,7 @@ export default function Dashboard() {
       </StaggeredFadeInView>
 
       <StaggeredFadeInView key={`hist-title-${viewKey}`} delay={favorites.length > 0 ? 300 : 250}>
-        <Text style={styles.sectionTitle}>Recent History</Text>
+        <Text style={styles.sectionTitle}>{i18n.t('dashboard.recentHistory')}</Text>
       </StaggeredFadeInView>
     </View>
   );
@@ -179,7 +183,7 @@ export default function Dashboard() {
       await Storage.removeEntry(id);
       await loadData();
     } catch (e) {
-      Alert.alert('Error', 'Failed to delete entry');
+      Alert.alert(i18n.t('common.error'), i18n.t('dashboard.failedToDelete'));
     }
   };
 
@@ -210,10 +214,10 @@ export default function Dashboard() {
         contentContainerStyle={styles.listContent}
         contentInsetAdjustmentBehavior="automatic"
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.dark.primary} />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={primaryColor} />
         }
         ListEmptyComponent={
-          <Text style={styles.emptyText}>No entries yet. Start tracking!</Text>
+          <Text style={styles.emptyText}>{i18n.t('dashboard.noEntries')}</Text>
         }
       />
 
@@ -231,17 +235,15 @@ export default function Dashboard() {
         onEditEntry={handleEditEntry}
       />
 
-      <Link href="/add" asChild>
-        <TouchableOpacity
-          style={styles.fab}
-          onPress={() => {
-            isNavigatingInternal.current = true;
-            router.push('/add');
-          }}
-        >
-          <Text style={styles.fabText}>+</Text>
-        </TouchableOpacity>
-      </Link>
+      <TouchableOpacity
+        style={[styles.fab, { backgroundColor: primaryColor, shadowColor: primaryColor }]}
+        onPress={() => {
+          isNavigatingInternal.current = true;
+          router.push('/add');
+        }}
+      >
+        <Text style={styles.fabText}>+</Text>
+      </TouchableOpacity>
     </View>
   );
 }

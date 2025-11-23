@@ -1,8 +1,10 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useMemo } from 'react';
 import { View, Text, StyleSheet, Modal, TouchableOpacity, ScrollView, Animated, Alert, Dimensions, TouchableHighlight } from 'react-native';
 import { Swipeable } from 'react-native-gesture-handler';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors } from '../constants/Colors';
+import { Colors, CategoryColors } from '../constants/Colors';
+import { useLanguage } from '../context/LanguageContext';
+import { useThemeColor } from '../context/ThemeContext';
 import { Entry } from '../utils/storage';
 
 interface DayDetailModalProps {
@@ -21,7 +23,13 @@ interface SwipeableEntryItemProps {
     onPress: () => void;
 }
 
+function getCategoryColor(category: string, primaryColor: string): string {
+    return CategoryColors[category as keyof typeof CategoryColors] || primaryColor;
+}
+
 function SwipeableEntryItem({ entry, onDelete, onPress }: SwipeableEntryItemProps) {
+    const { i18n } = useLanguage();
+    const { primaryColor } = useThemeColor();
     const swipeableRef = useRef<Swipeable>(null);
     const rowHeight = useRef(new Animated.Value(1)).current;
     const opacity = useRef(new Animated.Value(1)).current;
@@ -53,15 +61,15 @@ function SwipeableEntryItem({ entry, onDelete, onPress }: SwipeableEntryItemProp
         swipeableRef.current?.close();
 
         Alert.alert(
-            'Delete Entry',
-            `Delete ${entry.type} (${entry.amountSpent.toFixed(2).replace('.', ',')} €)?`,
+            i18n.t('common.delete'),
+            `${i18n.t('common.delete')} ${entry.type} (${entry.amountSpent.toFixed(2).replace('.', ',')} €)?`,
             [
                 {
-                    text: 'Cancel',
+                    text: i18n.t('common.cancel'),
                     style: 'cancel',
                 },
                 {
-                    text: 'Delete',
+                    text: i18n.t('common.delete'),
                     style: 'destructive',
                     onPress: () => {
                         Animated.parallel([
@@ -114,13 +122,13 @@ function SwipeableEntryItem({ entry, onDelete, onPress }: SwipeableEntryItemProp
                     <View style={styles.entryItem}>
                         <View style={styles.entryContent}>
                             <View style={styles.entryHeader}>
-                                <View style={[styles.categoryBadge, { backgroundColor: getCategoryColor(entry.category) }]}>
+                                <View style={[styles.categoryBadge, { backgroundColor: getCategoryColor(entry.category, primaryColor) }]}>
                                     <Text style={styles.categoryText}>{entry.category}</Text>
                                 </View>
                                 <Text style={styles.entryType} numberOfLines={1}>{entry.type}</Text>
                             </View>
                             <View style={styles.entryDetails}>
-                                <Text style={styles.entryAmount}>
+                                <Text style={[styles.entryAmount, { color: primaryColor }]}>
                                     {entry.amountSpent.toFixed(2).replace('.', ',')} €
                                 </Text>
                                 {entry.category === 'Weed' && (
@@ -139,6 +147,8 @@ function SwipeableEntryItem({ entry, onDelete, onPress }: SwipeableEntryItemProp
 }
 
 export default function DayDetailModal({ visible, date, entries, position, onClose, onDeleteEntry, onEditEntry }: DayDetailModalProps) {
+    const { i18n } = useLanguage();
+    const { primaryColor } = useThemeColor();
     const slideAnim = useRef(new Animated.Value(0)).current;
     const fadeAnim = useRef(new Animated.Value(0)).current;
     const [localEntries, setLocalEntries] = useState<Entry[]>(entries);
@@ -192,6 +202,8 @@ export default function DayDetailModal({ visible, date, entries, position, onClo
         onDeleteEntry(id);
     };
 
+    const totalSpent = useMemo(() => localEntries.reduce((sum, e) => sum + e.amountSpent, 0), [localEntries]);
+
     if (!date) return null;
 
     const formatDate = (d: Date) => {
@@ -203,8 +215,6 @@ export default function DayDetailModal({ visible, date, entries, position, onClo
         };
         return d.toLocaleDateString('en-US', options);
     };
-
-    const totalSpent = localEntries.reduce((sum, e) => sum + e.amountSpent, 0);
 
     const screenHeight = Dimensions.get('window').height;
     const screenWidth = Dimensions.get('window').width;
@@ -263,18 +273,18 @@ export default function DayDetailModal({ visible, date, entries, position, onClo
 
                     {localEntries.length === 0 ? (
                         <View style={styles.emptyContainer}>
-                            <Text style={styles.emptyText}>No purchases on this day</Text>
+                            <Text style={styles.emptyText}>{i18n.t('dashboard.noEntries')}</Text>
                         </View>
                     ) : (
                         <>
                             <View style={styles.summaryCard}>
-                                <Text style={styles.summaryLabel}>Total Spent</Text>
-                                <Text style={styles.summaryValue}>
+                                <Text style={styles.summaryLabel}>{i18n.t('dashboard.totalSpent')}</Text>
+                                <Text style={[styles.summaryValue, { color: primaryColor }]}>
                                     {totalSpent.toFixed(2).replace('.', ',')} €
                                 </Text>
                             </View>
 
-                            <Text style={styles.listTitle}>Purchases ({localEntries.length})</Text>
+                            <Text style={styles.listTitle}>{i18n.t('dashboard.recentHistory')} ({localEntries.length})</Text>
                             <ScrollView
                                 style={styles.entriesList}
                                 showsVerticalScrollIndicator={true}
@@ -295,21 +305,6 @@ export default function DayDetailModal({ visible, date, entries, position, onClo
             </View>
         </Modal>
     );
-}
-
-function getCategoryColor(category: string): string {
-    switch (category) {
-        case 'Weed':
-            return '#00E676';
-        case 'Alcohol':
-            return '#FF6B6B';
-        case 'Tobacco':
-            return '#FFA726';
-        case 'Other':
-            return '#42A5F5';
-        default:
-            return Colors.dark.primary;
-    }
 }
 
 const styles = StyleSheet.create({
@@ -458,3 +453,4 @@ const styles = StyleSheet.create({
         height: '100%',
     },
 });
+

@@ -7,11 +7,11 @@ export interface Entry {
     grams: number;
     source: string;
     type: string;
-    category: 'Alcohol' | 'Tobacco' | 'Weed' | 'Other';
+    category: 'Alcohol' | 'Tobacco' | 'Weed' | 'Food' | 'Other';
     notes?: string;
 }
 
-const STORAGE_KEY = '@budtracker_entries';
+const STORAGE_KEY = '@yonkistats_entries';
 
 export const Storage = {
     async getEntries(): Promise<Entry[]> {

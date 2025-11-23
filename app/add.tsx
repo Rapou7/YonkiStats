@@ -1,7 +1,9 @@
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, Alert, Platform, Animated, PanResponder, Dimensions } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Colors } from '../constants/Colors';
+import { useLanguage } from '../context/LanguageContext';
+import { useThemeColor } from '../context/ThemeContext';
 import { Storage } from '../utils/storage';
 import DateTimePicker from '@react-native-community/datetimepicker';
 
@@ -9,8 +11,10 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 export default function AddEntry() {
     const router = useRouter();
+    const { i18n } = useLanguage();
+    const { primaryColor } = useThemeColor();
     const params = useLocalSearchParams();
-    const [category, setCategory] = useState<'Alcohol' | 'Tobacco' | 'Weed' | 'Other' | null>(null);
+    const [category, setCategory] = useState<'Alcohol' | 'Tobacco' | 'Weed' | 'Food' | 'Other' | null>(null);
     const [step, setStep] = useState<'category' | 'form'>('category');
     const [amountSpent, setAmountSpent] = useState('');
     const [grams, setGrams] = useState('');
@@ -44,7 +48,18 @@ export default function AddEntry() {
                 console.error('Failed to parse edit entry', e);
             }
         }
-    }, [params.editEntry]);
+    }, [params.editEntry, slideAnim]);
+
+    const handleBackToCategory = useCallback(() => {
+        // Animate slide back to the right
+        Animated.timing(slideAnim, {
+            toValue: 0,
+            duration: 300,
+            useNativeDriver: true,
+        }).start(() => {
+            setStep('category');
+        });
+    }, [slideAnim]);
 
     // Pan responder for swipe-to-go-back gesture
     const panResponder = useRef(
@@ -95,7 +110,7 @@ export default function AddEntry() {
         })
     ).current;
 
-    const handleCategorySelect = (selectedCategory: 'Alcohol' | 'Tobacco' | 'Weed' | 'Other') => {
+    const handleCategorySelect = useCallback((selectedCategory: 'Alcohol' | 'Tobacco' | 'Weed' | 'Food' | 'Other') => {
         setCategory(selectedCategory);
         setStep('form');
         // Animate slide to the left
@@ -104,45 +119,36 @@ export default function AddEntry() {
             duration: 300,
             useNativeDriver: true,
         }).start();
-    };
+    }, [slideAnim]);
 
-    const handleBackToCategory = () => {
-        // Animate slide back to the right
-        Animated.timing(slideAnim, {
-            toValue: 0,
-            duration: 300,
-            useNativeDriver: true,
-        }).start(() => {
-            setStep('category');
-        });
-    };
-
-    const getLabels = () => {
+    const getLabels = useCallback(() => {
         switch (category) {
             case 'Alcohol':
-                return { amount: null, type: 'Name' };
+                return { amount: null, type: i18n.t('addEntry.name') };
             case 'Tobacco':
-                return { amount: null, type: 'Type (Brand)' };
+                return { amount: null, type: i18n.t('addEntry.typeBrand') };
+            case 'Food':
+                return { amount: null, type: i18n.t('addEntry.name') };
             case 'Other':
-                return { amount: 'Amount', type: 'Type' };
+                return { amount: null, type: i18n.t('addEntry.name') };
             case 'Weed':
             default:
-                return { amount: 'Grams (g)', type: 'Type (Strain/Type)' };
+                return { amount: i18n.t('addEntry.grams'), type: i18n.t('addEntry.typeStrain') };
         }
-    };
+    }, [category, i18n]);
 
-    const handleSaveFavorite = async () => {
+    const handleSaveFavorite = useCallback(async () => {
         // Validation
         if (!amountSpent || !type) {
-            Alert.alert('Error', 'Please fill in all required fields');
+            Alert.alert(i18n.t('common.error'), i18n.t('addEntry.requiredFields'));
             return;
         }
-        if ((category === 'Weed' || category === 'Other') && !grams) {
-            Alert.alert('Error', 'Please enter the amount');
+        if (category === 'Weed' && !grams) {
+            Alert.alert(i18n.t('common.error'), i18n.t('addEntry.enterAmount'));
             return;
         }
-        if (category === 'Weed' && !source) {
-            Alert.alert('Error', 'Please enter the source');
+        if ((category === 'Weed' || category === 'Food') && !source) {
+            Alert.alert(i18n.t('common.error'), i18n.t('addEntry.enterSource'));
             return;
         }
 
@@ -155,28 +161,28 @@ export default function AddEntry() {
                 category: category!,
                 notes,
             });
-            Alert.alert('Success', 'Added to favorites!');
+            Alert.alert(i18n.t('common.success'), i18n.t('addEntry.favoriteAdded'));
         } catch (e: any) {
             if (e.message === 'Max favorites reached') {
-                Alert.alert('Error', 'You can only have up to 6 favorites. Long press a favorite on the dashboard to remove it.');
+                Alert.alert(i18n.t('common.error'), i18n.t('addEntry.maxFavorites'));
             } else {
-                Alert.alert('Error', 'Failed to save favorite');
+                Alert.alert(i18n.t('common.error'), i18n.t('addEntry.failedSaveFavorite'));
             }
         }
-    };
+    }, [amountSpent, type, category, grams, source, notes, i18n]);
 
-    const handleSave = async () => {
+    const handleSave = useCallback(async () => {
         // Validation
         if (!amountSpent || !type) {
-            Alert.alert('Error', 'Please fill in all required fields');
+            Alert.alert(i18n.t('common.error'), i18n.t('addEntry.requiredFields'));
             return;
         }
-        if ((category === 'Weed' || category === 'Other') && !grams) {
-            Alert.alert('Error', 'Please enter the amount');
+        if (category === 'Weed' && !grams) {
+            Alert.alert(i18n.t('common.error'), i18n.t('addEntry.enterAmount'));
             return;
         }
-        if (category === 'Weed' && !source) {
-            Alert.alert('Error', 'Please enter the source');
+        if ((category === 'Weed' || category === 'Food') && !source) {
+            Alert.alert(i18n.t('common.error'), i18n.t('addEntry.enterSource'));
             return;
         }
 
@@ -205,15 +211,15 @@ export default function AddEntry() {
             }
             router.back();
         } catch (e) {
-            Alert.alert('Error', 'Failed to save entry');
+            Alert.alert(i18n.t('common.error'), i18n.t('addEntry.failedSaveEntry'));
         }
-    };
+    }, [amountSpent, type, category, grams, source, notes, date, editingId, i18n, router]);
 
-    const onChangeDate = (event: any, selectedDate?: Date) => {
+    const onChangeDate = useCallback((event: any, selectedDate?: Date) => {
         const currentDate = selectedDate || date;
         setShowDatePicker(Platform.OS === 'ios');
         setDate(currentDate);
-    };
+    }, [date]);
 
     const labels = getLabels();
 
@@ -241,14 +247,14 @@ export default function AddEntry() {
                 pointerEvents={step === 'category' ? 'auto' : 'none'}
             >
                 <View style={styles.categoryContainer}>
-                    <Text style={styles.headerTitle}>{editingId ? 'Edit Entry' : 'Select Category'}</Text>
-                    {['Alcohol', 'Tobacco', 'Weed', 'Other'].map((cat) => (
+                    <Text style={styles.headerTitle}>{editingId ? i18n.t('addEntry.editTitle') : i18n.t('addEntry.selectCategory')}</Text>
+                    {['Alcohol', 'Tobacco', 'Weed', 'Food', 'Other'].map((cat) => (
                         <TouchableOpacity
                             key={cat}
                             style={styles.categoryButton}
                             onPress={() => handleCategorySelect(cat as any)}
                         >
-                            <Text style={styles.categoryButtonText}>{cat}</Text>
+                            <Text style={styles.categoryButtonText}>{i18n.t(`categories.${cat}`)}</Text>
                         </TouchableOpacity>
                     ))}
                 </View>
@@ -269,11 +275,11 @@ export default function AddEntry() {
             >
                 <ScrollView style={styles.scrollView} contentContainerStyle={styles.content}>
                     <TouchableOpacity onPress={handleBackToCategory} style={styles.backToCategory}>
-                        <Text style={styles.backToCategoryText}>← Change Category ({category})</Text>
+                        <Text style={[styles.backToCategoryText, { color: primaryColor }]}>← {i18n.t('addEntry.changeCategory')} ({i18n.t(`categories.${category}`)})</Text>
                     </TouchableOpacity>
 
                     <View style={styles.formGroup}>
-                        <Text style={styles.label}>Date</Text>
+                        <Text style={styles.label}>{i18n.t('addEntry.date')}</Text>
                         <View style={styles.dateContainer}>
                             <TouchableOpacity onPress={() => setShowDatePicker(true)} style={styles.dateButton}>
                                 <Text style={styles.dateButtonText}>{date.toLocaleDateString()}</Text>
@@ -293,7 +299,7 @@ export default function AddEntry() {
                     </View>
 
                     <View style={styles.formGroup}>
-                        <Text style={styles.label}>Amount Spent (€)</Text>
+                        <Text style={styles.label}>{i18n.t('addEntry.amountSpent')}</Text>
                         <TextInput
                             style={styles.input}
                             placeholder="0,00 €"
@@ -329,9 +335,9 @@ export default function AddEntry() {
                         />
                     </View>
 
-                    {category === 'Weed' && (
+                    {(category === 'Weed' || category === 'Food') && (
                         <View style={styles.formGroup}>
-                            <Text style={styles.label}>Source (Where did you get it?)</Text>
+                            <Text style={styles.label}>{i18n.t('addEntry.source')}</Text>
                             <TextInput
                                 style={styles.input}
                                 placeholder="e.g. Store, Friend, etc."
@@ -343,7 +349,7 @@ export default function AddEntry() {
                     )}
 
                     <View style={styles.formGroup}>
-                        <Text style={styles.label}>Notes (Optional)</Text>
+                        <Text style={styles.label}>{i18n.t('addEntry.notes')}</Text>
                         <TextInput
                             style={[styles.input, styles.textArea]}
                             placeholder="Any other details..."
@@ -356,11 +362,11 @@ export default function AddEntry() {
                     </View>
 
                     <TouchableOpacity style={styles.favoriteButton} onPress={handleSaveFavorite}>
-                        <Text style={styles.favoriteButtonText}>★ Save as Favorite</Text>
+                        <Text style={styles.favoriteButtonText}>{i18n.t('addEntry.saveFavorite')}</Text>
                     </TouchableOpacity>
 
-                    <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
-                        <Text style={styles.saveButtonText}>{editingId ? 'Update Entry' : 'Save Entry'}</Text>
+                    <TouchableOpacity style={[styles.saveButton, { backgroundColor: primaryColor, shadowColor: primaryColor }]} onPress={handleSave}>
+                        <Text style={styles.saveButtonText}>{editingId ? i18n.t('addEntry.updateEntry') : i18n.t('addEntry.saveEntry')}</Text>
                     </TouchableOpacity>
                 </ScrollView>
             </Animated.View>
