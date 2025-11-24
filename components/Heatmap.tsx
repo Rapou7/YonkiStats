@@ -1,5 +1,5 @@
-import React, { useCallback, useMemo } from 'react';
-import { Dimensions, TouchableOpacity, View } from 'react-native';
+import React, { useCallback, useEffect, useMemo, useRef } from 'react';
+import { Animated, Dimensions, Easing, TouchableOpacity, View } from 'react-native';
 import Svg, { Rect } from 'react-native-svg';
 import { CategoryColors } from '../constants/Colors';
 import { useThemeColor } from '../context/ThemeContext';
@@ -15,14 +15,18 @@ function getCategoryColor(category: string, primaryColor: string): string {
     return CategoryColors[category as keyof typeof CategoryColors] || primaryColor;
 }
 
-// Stateless heatmap cell: renders fill, and (optionally) secondary as stroke outline if two+ categories
-const HeatmapCell = React.memo(({
+const AnimatedRect = Animated.createAnimatedComponent(Rect);
+
+// AnimatedHeatmapCell now uses Animated.modulo for seamless color looping
+const AnimatedHeatmapCell = React.memo(({
     x,
     y,
     cellSize,
     categories,
     intensity,
     primaryColor,
+    index,
+    sharedAnimValue,
 }: {
     x: number;
     y: number;
@@ -30,6 +34,8 @@ const HeatmapCell = React.memo(({
     categories: string[];
     intensity: number;
     primaryColor: string;
+    index: number;
+    sharedAnimValue: Animated.Value;
 }) => {
     if (categories.length === 0) {
         return (
@@ -46,10 +52,9 @@ const HeatmapCell = React.memo(({
         );
     }
 
-    const fillColor = getCategoryColor(categories[0], primaryColor);
-    const opacity = 0.3 + (0.7 * intensity);
-
     if (categories.length === 1) {
+        const color = getCategoryColor(categories[0], primaryColor);
+        const opacity = 0.3 + (0.7 * intensity);
         return (
             <Rect
                 x={x}
@@ -58,43 +63,49 @@ const HeatmapCell = React.memo(({
                 height={cellSize}
                 rx={4}
                 ry={4}
-                fill={fillColor}
+                fill={color}
                 fillOpacity={opacity}
             />
         );
     }
 
-    // For two+ categories: draw primary as fill, secondary as inside outline (same opacity, same radius)
-    const strokeColor = getCategoryColor(categories[1], primaryColor);
-    const strokeWidth = 2;
-    const inset = strokeWidth / 2; // So stroke is fully inside
-    const outlineRadius = 4; // Matches main fill
+    // Multi-category: Animated color cycling, seamless loop!
+    const colors = categories.map(cat => getCategoryColor(cat, primaryColor));
+    const opacity = 0.3 + (0.7 * intensity);
+
+    // Controls phase/wave: change waveLength for different effects
+    const waveLength = 20;
+    const N = categories.length;
+    const phase = (index % waveLength) / waveLength;
+
+    // For seamless looping, Animated.modulo(Animated.add(...), 1)
+    const animatedPhase = Animated.modulo(
+        Animated.add(sharedAnimValue, phase),
+        1
+    );
+
+    // input/output ranges strictly monotonic: [0, 1/N, 2/N, ..., 1]
+    const inputRange = colors.map((_, i) => i / N);
+    inputRange.push(1);
+    const outputRange = [...colors, colors[0]];
+
+    const colorAnim = animatedPhase.interpolate({
+        inputRange,
+        outputRange,
+        extrapolate: 'clamp',
+    });
 
     return (
-        <>
-            <Rect
-                x={x}
-                y={y}
-                width={cellSize}
-                height={cellSize}
-                rx={4}
-                ry={4}
-                fill={fillColor}
-                fillOpacity={opacity}
-            />
-            <Rect
-                x={x + inset}
-                y={y + inset}
-                width={cellSize - strokeWidth}
-                height={cellSize - strokeWidth}
-                rx={outlineRadius}
-                ry={outlineRadius}
-                fill="none"
-                stroke={strokeColor}
-                strokeWidth={strokeWidth}
-                strokeOpacity={opacity}
-            />
-        </>
+        <AnimatedRect
+            x={x}
+            y={y}
+            width={cellSize}
+            height={cellSize}
+            rx={4}
+            ry={4}
+            fill={colorAnim}
+            fillOpacity={opacity}
+        />
     );
 });
 
@@ -102,24 +113,23 @@ export default function Heatmap({ entries, numDays = 91, endDate = new Date(), o
     const { primaryColor } = useThemeColor();
     const screenWidth = Dimensions.get('window').width;
     const gutter = 4;
-    const padding = 64; // Total horizontal padding (Screen padding 32 + Card padding 32)
+    const padding = 64;
 
-    // Calculate start date and its day of the week
+    // Calculate start date and day offset
     const startDate = new Date(endDate);
     startDate.setDate(startDate.getDate() - (numDays - 1));
-    const startDay = startDate.getDay(); // 0 = Sunday, 1 = Monday, etc.
+    const startDay = startDate.getDay();
 
-    // Calculate number of weeks to show, accounting for the offset
+    // Number of week columns, and cell size
     const numWeeks = Math.ceil((numDays + startDay) / 7);
-
-    // Calculate cell size to fit screen
     const availableWidth = screenWidth - padding;
     const cellSize = (availableWidth - (numWeeks - 1) * gutter) / numWeeks;
 
-    const { cells } = useMemo(() => {
+    // Prepare heatmap cells and maxCategories
+    const { cells, maxCategories } = useMemo(() => {
         const data: { [key: string]: { amount: number; entries: any[]; categories: Set<string> } } = {};
         let max = 0;
-
+        let maxCats = 0;
         entries.forEach(e => {
             const dateStr = e.date.split('T')[0];
             if (!data[dateStr]) {
@@ -128,15 +138,14 @@ export default function Heatmap({ entries, numDays = 91, endDate = new Date(), o
             data[dateStr].amount += e.amountSpent;
             data[dateStr].entries.push(e);
 
-            // Track unique categories
             const cat = e.category || 'Other';
             data[dateStr].categories.add(cat);
 
             if (data[dateStr].amount > max) max = data[dateStr].amount;
+            if (data[dateStr].categories.size > maxCats) maxCats = data[dateStr].categories.size;
         });
 
         const result = [];
-        // Start from (numDays - 1) days ago
         for (let i = numDays - 1; i >= 0; i--) {
             const d = new Date(endDate);
             d.setDate(d.getDate() - i);
@@ -151,11 +160,10 @@ export default function Heatmap({ entries, numDays = 91, endDate = new Date(), o
                 categories: Array.from(dayData.categories),
             });
         }
-        return { cells: result, maxSpend: max };
+        return { cells: result, maxCategories: maxCats };
     }, [entries, numDays, endDate]);
 
     const gridCells = useMemo(() => cells.map((cell, index) => {
-        // Calculate column (week) and row (day of week) based on the start offset
         const globalIndex = index + startDay;
         const col = Math.floor(globalIndex / 7);
         const row = globalIndex % 7;
@@ -167,7 +175,6 @@ export default function Heatmap({ entries, numDays = 91, endDate = new Date(), o
         };
     }), [cells, startDay, cellSize, gutter]);
 
-    // Calculate total width/height
     const width = numWeeks * (cellSize + gutter) - gutter;
     const height = 7 * (cellSize + gutter) - gutter;
 
@@ -180,11 +187,26 @@ export default function Heatmap({ entries, numDays = 91, endDate = new Date(), o
         }
     }, [onDayPress, cellSize]);
 
+    const sharedAnimValue = useRef(new Animated.Value(0)).current;
+    useEffect(() => {
+        const duration = Math.max(1, maxCategories) * 2000;
+        const anim = Animated.loop(
+            Animated.timing(sharedAnimValue, {
+                toValue: 1,
+                duration,
+                easing: Easing.linear,
+                useNativeDriver: false,
+            })
+        );
+        anim.start();
+        return () => anim.stop();
+    }, [sharedAnimValue, maxCategories]);
+
     return (
         <View style={{ alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
             <Svg width={width} height={height}>
                 {gridCells.map((cell, index) => (
-                    <HeatmapCell
+                    <AnimatedHeatmapCell
                         key={index}
                         x={cell.x}
                         y={cell.y}
@@ -192,10 +214,11 @@ export default function Heatmap({ entries, numDays = 91, endDate = new Date(), o
                         categories={cell.categories}
                         intensity={cell.intensity}
                         primaryColor={primaryColor}
+                        index={index}
+                        sharedAnimValue={sharedAnimValue}
                     />
                 ))}
             </Svg>
-            {/* Overlay touchable areas */}
             <View style={{ position: 'absolute', width, height }}>
                 {gridCells.map((cell, index) => (
                     <TouchableOpacity
