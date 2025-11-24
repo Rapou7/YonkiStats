@@ -1,8 +1,8 @@
-import React, { useEffect, useRef, useState, useMemo } from 'react';
-import { View, Text, StyleSheet, Modal, TouchableOpacity, ScrollView, Animated, Alert, Dimensions, TouchableHighlight } from 'react-native';
-import { Swipeable } from 'react-native-gesture-handler';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors, CategoryColors } from '../constants/Colors';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Alert, Animated, Dimensions, Modal, ScrollView, StyleSheet, Text, TouchableHighlight, TouchableOpacity, View } from 'react-native';
+import { Swipeable } from 'react-native-gesture-handler';
+import { CategoryColors, Colors } from '../constants/Colors';
 import { useLanguage } from '../context/LanguageContext';
 import { useThemeColor } from '../context/ThemeContext';
 import { Entry } from '../utils/storage';
@@ -123,7 +123,7 @@ function SwipeableEntryItem({ entry, onDelete, onPress }: SwipeableEntryItemProp
                         <View style={styles.entryContent}>
                             <View style={styles.entryHeader}>
                                 <View style={[styles.categoryBadge, { backgroundColor: getCategoryColor(entry.category, primaryColor) }]}>
-                                    <Text style={styles.categoryText}>{entry.category}</Text>
+                                    <Text style={styles.categoryText}>{i18n.t(`categories.${entry.category}`)}</Text>
                                 </View>
                                 <Text style={styles.entryType} numberOfLines={1}>{entry.type}</Text>
                             </View>
@@ -136,7 +136,10 @@ function SwipeableEntryItem({ entry, onDelete, onPress }: SwipeableEntryItemProp
                                 )}
                             </View>
                             {entry.source && (
-                                <Text style={styles.entrySource} numberOfLines={1}>Source: {entry.source}</Text>
+                                <Text style={styles.entrySource} numberOfLines={1}>{i18n.t('common.source')}: {entry.source}</Text>
+                            )}
+                            {entry.notes && (
+                                <Text style={styles.entryNotes} numberOfLines={2}>{i18n.t('common.note')}: {entry.notes}</Text>
                             )}
                         </View>
                     </View>
@@ -147,7 +150,7 @@ function SwipeableEntryItem({ entry, onDelete, onPress }: SwipeableEntryItemProp
 }
 
 export default function DayDetailModal({ visible, date, entries, position, onClose, onDeleteEntry, onEditEntry }: DayDetailModalProps) {
-    const { i18n } = useLanguage();
+    const { i18n, language } = useLanguage();
     const { primaryColor } = useThemeColor();
     const slideAnim = useRef(new Animated.Value(0)).current;
     const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -213,7 +216,21 @@ export default function DayDetailModal({ visible, date, entries, position, onClo
             month: 'long',
             day: 'numeric'
         };
-        return d.toLocaleDateString('en-US', options);
+        const locale = language === 'es' ? 'es-ES' : 'en-US';
+        let dateString = d.toLocaleDateString(locale, options);
+
+        if (language === 'es') {
+            return dateString.split(' ').map((word, index) => {
+                // Always capitalize first word
+                if (index === 0) return word.charAt(0).toUpperCase() + word.slice(1);
+                // Don't capitalize connectors
+                if (['de', 'del', 'el', 'la', 'en'].includes(word.toLowerCase())) return word.toLowerCase();
+                // Capitalize other words (like Month names)
+                return word.charAt(0).toUpperCase() + word.slice(1);
+            }).join(' ');
+        }
+
+        return dateString;
     };
 
     const screenHeight = Dimensions.get('window').height;
@@ -437,6 +454,12 @@ const styles = StyleSheet.create({
         color: Colors.dark.textSecondary,
         fontSize: 12,
     },
+    entryNotes: {
+        color: Colors.dark.textSecondary,
+        fontSize: 12,
+        fontStyle: 'italic',
+        marginTop: 2,
+    },
     emptyContainer: {
         paddingVertical: 40,
         alignItems: 'center',
@@ -453,4 +476,3 @@ const styles = StyleSheet.create({
         height: '100%',
     },
 });
-

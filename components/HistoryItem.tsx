@@ -1,7 +1,7 @@
-import React, { useRef } from 'react';
-import { View, Text, StyleSheet, Animated, Alert, TouchableHighlight } from 'react-native';
-import { Swipeable } from 'react-native-gesture-handler';
 import { Ionicons } from '@expo/vector-icons';
+import React, { useRef } from 'react';
+import { Alert, Animated, StyleSheet, Text, TouchableHighlight, View } from 'react-native';
+import { Swipeable } from 'react-native-gesture-handler';
 import { Colors } from '../constants/Colors';
 import { useLanguage } from '../context/LanguageContext';
 import { useThemeColor } from '../context/ThemeContext';
@@ -14,7 +14,7 @@ interface HistoryItemProps {
 }
 
 export default function HistoryItem({ item, onDelete, onPress }: HistoryItemProps) {
-    const { i18n } = useLanguage();
+    const { i18n, language } = useLanguage();
     const { primaryColor } = useThemeColor();
     const swipeableRef = useRef<Swipeable>(null);
     const rowHeight = useRef(new Animated.Value(1)).current;
@@ -88,7 +88,7 @@ export default function HistoryItem({ item, onDelete, onPress }: HistoryItemProp
                     opacity,
                     maxHeight: rowHeight.interpolate({
                         inputRange: [0, 1],
-                        outputRange: [0, 100], // Approximate max height
+                        outputRange: [0, 500], // Increased to accommodate notes
                     }),
                     transform: [{ scaleY: rowHeight }]
                 }
@@ -107,19 +107,28 @@ export default function HistoryItem({ item, onDelete, onPress }: HistoryItemProp
                     onPress={onPress}
                     style={{ borderRadius: 12 }}
                 >
-                    <View style={styles.item}>
-                        <View>
-                            <Text style={[styles.itemCategory, { color: primaryColor }]}>{item.category || 'Weed'}</Text>
-                            <Text style={styles.itemType}>{item.type}</Text>
-                            <Text style={styles.itemSource}>{item.source}</Text>
-                            <Text style={styles.itemDate}>{new Date(item.date).toLocaleDateString()}</Text>
+                    <View>
+                        <View style={[styles.item, item.notes ? { paddingBottom: 4 } : null]}>
+                            <View>
+                                <Text style={[styles.itemCategory, { color: primaryColor }]}>{i18n.t(`categories.${item.category || 'Weed'}`)}</Text>
+                                <Text style={styles.itemType}>{item.type}</Text>
+                                {item.source && (
+                                    <Text style={styles.itemSource}>{i18n.t('common.source')}: {item.source}</Text>
+                                )}
+                                <Text style={styles.itemDate}>{new Date(item.date).toLocaleDateString(language === 'es' ? 'es-ES' : 'en-US')}</Text>
+                            </View>
+                            <View style={{ alignItems: 'flex-end' }}>
+                                <Text style={[styles.itemPrice, { color: primaryColor }]}>{item.amountSpent.toFixed(2).replace('.', ',')} €</Text>
+                                {item.category === 'Weed' && (
+                                    <Text style={styles.itemGrams}>{item.grams}g</Text>
+                                )}
+                            </View>
                         </View>
-                        <View style={{ alignItems: 'flex-end' }}>
-                            <Text style={[styles.itemPrice, { color: primaryColor }]}>{item.amountSpent.toFixed(2).replace('.', ',')} €</Text>
-                            {item.category === 'Weed' && (
-                                <Text style={styles.itemGrams}>{item.grams}g</Text>
-                            )}
-                        </View>
+                        {item.notes && (
+                            <View style={styles.notesContainer}>
+                                <Text style={styles.itemNotes} numberOfLines={2}>{i18n.t('common.note')}: {item.notes}</Text>
+                            </View>
+                        )}
                     </View>
                 </TouchableHighlight>
             </Swipeable>
@@ -180,5 +189,15 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         width: 80,
         height: '100%',
+    },
+    notesContainer: {
+        paddingHorizontal: 16,
+        paddingBottom: 16,
+        backgroundColor: Colors.dark.surface,
+    },
+    itemNotes: {
+        color: Colors.dark.textSecondary,
+        fontSize: 12,
+        fontStyle: 'italic',
     },
 });

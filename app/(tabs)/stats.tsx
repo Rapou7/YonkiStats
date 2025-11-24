@@ -1,17 +1,17 @@
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions, Animated } from 'react-native';
 import { useFocusEffect } from 'expo-router';
-import { useCallback, useState, useRef, useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Animated, Dimensions, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { LineChart } from 'react-native-gifted-charts';
+import { StaggeredFadeInView } from '../../components/StaggeredFadeInView';
 import { Colors } from '../../constants/Colors';
 import { useLanguage } from '../../context/LanguageContext';
 import { useThemeColor } from '../../context/ThemeContext';
-import { Storage, Entry } from '../../utils/storage';
-import { LineChart } from 'react-native-gifted-charts';
-import { StaggeredFadeInView } from '../../components/StaggeredFadeInView';
+import { Entry, Storage } from '../../utils/storage';
 
 type Period = '7d' | '30d' | '90d';
 
 export default function StatsScreen() {
-    const { i18n } = useLanguage();
+    const { i18n, language } = useLanguage();
     const { primaryColor } = useThemeColor();
     const [entries, setEntries] = useState<Entry[]>([]);
     const [period, setPeriod] = useState<Period>('7d');
@@ -90,6 +90,7 @@ export default function StatsScreen() {
         const dataPoints: { value: number, label?: string, date: string }[] = [];
         let runningTotal = 0;
         const sortedDates = Object.keys(dailyMap).sort();
+        const locale = language === 'es' ? 'es-ES' : 'en-US';
 
         sortedDates.forEach((date, index) => {
             runningTotal += dailyMap[date];
@@ -98,22 +99,22 @@ export default function StatsScreen() {
             // Add labels sparingly based on period
             let label = undefined;
             if (displayedPeriod === '7d') {
-                label = d.toLocaleDateString(undefined, { weekday: 'short' });
+                label = d.toLocaleDateString(locale, { weekday: 'short' });
             } else if (displayedPeriod === '30d' && index % 3 === 0) {
-                label = d.toLocaleDateString(undefined, { day: 'numeric' });
+                label = d.toLocaleDateString(locale, { day: 'numeric' });
             } else if (displayedPeriod === '90d' && index % 15 === 0) {
-                label = d.toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
+                label = d.toLocaleDateString(locale, { day: 'numeric', month: 'short' });
             }
 
             dataPoints.push({
                 value: runningTotal,
                 label: label,
-                date: d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+                date: d.toLocaleDateString(locale, { month: 'short', day: 'numeric' })
             });
         });
 
         if (dataPoints.length === 0) {
-            return [{ value: 0, date: new Date().toLocaleDateString() }];
+            return [{ value: 0, date: new Date().toLocaleDateString(locale) }];
         }
 
         return dataPoints;

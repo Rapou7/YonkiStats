@@ -1,15 +1,14 @@
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, RefreshControl, Dimensions, Alert, Animated } from 'react-native';
-import { Link, useFocusEffect, useRouter } from 'expo-router';
-import { useCallback, useState, useRef } from 'react';
+import { useFocusEffect, useRouter } from 'expo-router';
+import { useCallback, useRef, useState } from 'react';
+import { Alert, FlatList, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import DayDetailModal from '../../components/DayDetailModal';
+import Heatmap from '../../components/Heatmap';
+import HistoryItem from '../../components/HistoryItem';
+import { StaggeredFadeInView } from '../../components/StaggeredFadeInView';
 import { Colors } from '../../constants/Colors';
 import { useLanguage } from '../../context/LanguageContext';
 import { useThemeColor } from '../../context/ThemeContext';
-import { Storage, Entry } from '../../utils/storage';
-import Heatmap from '../../components/Heatmap';
-import HistoryItem from '../../components/HistoryItem';
-import DayDetailModal from '../../components/DayDetailModal';
-import { FadeInView } from '../../components/FadeInView';
-import { StaggeredFadeInView } from '../../components/StaggeredFadeInView';
+import { Entry, Storage } from '../../utils/storage';
 
 export default function Dashboard() {
   const router = useRouter();
@@ -21,6 +20,10 @@ export default function Dashboard() {
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedDayEntries, setSelectedDayEntries] = useState<Entry[]>([]);
   const [selectedPosition, setSelectedPosition] = useState<{ x: number; y: number } | null>(null);
+
+  // Pagination control
+  const [displayedCount, setDisplayedCount] = useState(25);
+  const LOAD_MORE_COUNT = 25;
 
   // Animation control
   const [viewKey, setViewKey] = useState(0);
@@ -49,6 +52,7 @@ export default function Dashboard() {
 
   const onRefresh = async () => {
     setRefreshing(true);
+    setDisplayedCount(25); // Reset pagination on refresh
     await loadData();
     setRefreshing(false);
   };
@@ -207,7 +211,7 @@ export default function Dashboard() {
   return (
     <View style={styles.container}>
       <FlatList
-        data={entries}
+        data={entries.slice(0, displayedCount)}
         renderItem={renderItem}
         keyExtractor={(item) => item.id}
         ListHeaderComponent={headerComponent}
@@ -218,6 +222,18 @@ export default function Dashboard() {
         }
         ListEmptyComponent={
           <Text style={styles.emptyText}>{i18n.t('dashboard.noEntries')}</Text>
+        }
+        ListFooterComponent={
+          displayedCount < entries.length ? (
+            <TouchableOpacity
+              style={[styles.loadMoreButton, { borderColor: primaryColor }]}
+              onPress={() => setDisplayedCount(prev => prev + LOAD_MORE_COUNT)}
+            >
+              <Text style={[styles.loadMoreText, { color: primaryColor }]}>
+                {i18n.t('dashboard.loadMore')} ({entries.length - displayedCount} {i18n.t('dashboard.moreEntries')})
+              </Text>
+            </TouchableOpacity>
+          ) : null
         }
       />
 
@@ -367,5 +383,18 @@ const styles = StyleSheet.create({
     fontSize: 32,
     fontWeight: 'bold',
     marginTop: -2,
+  },
+  loadMoreButton: {
+    backgroundColor: 'transparent',
+    borderWidth: 1.5,
+    borderRadius: 12,
+    padding: 16,
+    marginTop: 12,
+    marginBottom: 20,
+    alignItems: 'center',
+  },
+  loadMoreText: {
+    fontSize: 16,
+    fontWeight: '600',
   },
 });

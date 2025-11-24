@@ -1,6 +1,6 @@
-import React, { useMemo, useEffect, useRef, useCallback } from 'react';
-import { View, Dimensions, TouchableOpacity, Animated } from 'react-native';
-import Svg, { Rect } from 'react-native-svg';
+import React, { useCallback, useMemo } from 'react';
+import { Dimensions, TouchableOpacity, View } from 'react-native';
+import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 import { CategoryColors } from '../constants/Colors';
 import { useThemeColor } from '../context/ThemeContext';
 
@@ -15,10 +15,8 @@ function getCategoryColor(category: string, primaryColor: string): string {
     return CategoryColors[category as keyof typeof CategoryColors] || primaryColor;
 }
 
-const AnimatedRect = Animated.createAnimatedComponent(Rect);
-
-// Component for animated cell
-const AnimatedHeatmapCell = React.memo(({
+// Component for static cell with gradient blend
+const HeatmapCell = React.memo(({
     x,
     y,
     cellSize,
@@ -35,37 +33,6 @@ const AnimatedHeatmapCell = React.memo(({
     primaryColor: string;
     index: number;
 }) => {
-    const animatedValue = useRef(new Animated.Value(0)).current;
-
-    useEffect(() => {
-        if (categories.length > 1) {
-            // Stagger the animation start based on index to create a wave effect
-            const delay = (index % 10) * 200;
-
-            const runAnimation = () => {
-                animatedValue.setValue(0);
-                Animated.sequence([
-                    Animated.delay(delay),
-                    Animated.timing(animatedValue, {
-                        toValue: categories.length,
-                        duration: categories.length * 2000, // 2 seconds per color
-                        useNativeDriver: false,
-                    }),
-                ]).start((result) => {
-                    if (result.finished) {
-                        runAnimation(); // Loop by calling recursively
-                    }
-                });
-            };
-
-            runAnimation();
-
-            return () => {
-                animatedValue.stopAnimation();
-            };
-        }
-    }, [categories.length, index]); // Removed animatedValue from deps as it's a ref
-
     if (categories.length === 0) {
         // Empty cell
         return (
@@ -82,10 +49,11 @@ const AnimatedHeatmapCell = React.memo(({
         );
     }
 
+    const opacity = 0.3 + (0.7 * intensity);
+
     if (categories.length === 1) {
-        // Single category - no animation
+        // Single category - solid color
         const color = getCategoryColor(categories[0], primaryColor);
-        const opacity = 0.3 + (0.7 * intensity);
         return (
             <Rect
                 x={x}
@@ -100,29 +68,32 @@ const AnimatedHeatmapCell = React.memo(({
         );
     }
 
-    // Multiple categories - animate between colors
-    const colors = categories.map(cat => getCategoryColor(cat, primaryColor));
-
-    // Create interpolation ranges
-    const inputRange = categories.map((_, i) => i);
-    const opacity = 0.3 + (0.7 * intensity);
-
-    const interpolatedColor = animatedValue.interpolate({
-        inputRange: [...inputRange, categories.length],
-        outputRange: [...colors, colors[0]], // Loop back to first color
-    });
+    // Multiple categories - blend top 2 categories with smooth transitions
+    const gradientId = `gradient-${index}`;
+    const topCategories = categories.slice(0, 2);
+    const color1 = getCategoryColor(topCategories[0], primaryColor);
+    const color2 = getCategoryColor(topCategories[1], primaryColor);
 
     return (
-        <AnimatedRect
-            x={x}
-            y={y}
-            width={cellSize}
-            height={cellSize}
-            rx={4}
-            ry={4}
-            fill={interpolatedColor}
-            fillOpacity={opacity}
-        />
+        <>
+            <Defs>
+                <LinearGradient id={gradientId} x1="0%" y1="100%" x2="100%" y2="0%">
+                    <Stop offset="0%" stopColor={color1} stopOpacity={opacity} />
+                    <Stop offset="25%" stopColor={color1} stopOpacity={opacity} />
+                    <Stop offset="75%" stopColor={color2} stopOpacity={opacity} />
+                    <Stop offset="100%" stopColor={color2} stopOpacity={opacity} />
+                </LinearGradient>
+            </Defs>
+            <Rect
+                x={x}
+                y={y}
+                width={cellSize}
+                height={cellSize}
+                rx={4}
+                ry={4}
+                fill={`url(#${gradientId})`}
+            />
+        </>
     );
 });
 
@@ -212,7 +183,7 @@ export default function Heatmap({ entries, numDays = 91, endDate = new Date(), o
         <View style={{ alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
             <Svg width={width} height={height}>
                 {gridCells.map((cell, index) => (
-                    <AnimatedHeatmapCell
+                    <HeatmapCell
                         key={index}
                         x={cell.x}
                         y={cell.y}

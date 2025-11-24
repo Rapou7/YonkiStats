@@ -12,9 +12,9 @@ export const Colors = {
 };
 
 export const CategoryColors = {
-    Weed: '#00E676',      // Green
-    Alcohol: '#FF6B6B',   // Red
-    Tobacco: '#FFA726',   // Orange
-    Food: '#FFD54F',      // Yellow
-    Other: '#42A5F5',     // Blue
+    Weed: '#2ecc71',      // Green
+    Alcohol: '#e74c3c',   // Red
+    Tobacco: '#e67e22',   // Orange
+    Food: '#f1c40f',      // Yellow
+    Other: '#4b7bec',     // Blue
 } as const;

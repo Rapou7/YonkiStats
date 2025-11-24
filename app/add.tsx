@@ -1,17 +1,17 @@
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, Alert, Platform, Animated, PanResponder, Dimensions } from 'react-native';
-import { useRouter, useLocalSearchParams } from 'expo-router';
-import { useState, useEffect, useRef, useCallback } from 'react';
+import DateTimePicker from '@react-native-community/datetimepicker';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Alert, Animated, Dimensions, PanResponder, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { Colors } from '../constants/Colors';
 import { useLanguage } from '../context/LanguageContext';
 import { useThemeColor } from '../context/ThemeContext';
 import { Storage } from '../utils/storage';
-import DateTimePicker from '@react-native-community/datetimepicker';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 export default function AddEntry() {
     const router = useRouter();
-    const { i18n } = useLanguage();
+    const { i18n, language } = useLanguage();
     const { primaryColor } = useThemeColor();
     const params = useLocalSearchParams();
     const [category, setCategory] = useState<'Alcohol' | 'Tobacco' | 'Weed' | 'Food' | 'Other' | null>(null);
@@ -217,8 +217,10 @@ export default function AddEntry() {
 
     const onChangeDate = useCallback((event: any, selectedDate?: Date) => {
         const currentDate = selectedDate || date;
-        setShowDatePicker(Platform.OS === 'ios');
         setDate(currentDate);
+        if (Platform.OS === 'android') {
+            setShowDatePicker(false);
+        }
     }, [date]);
 
     const labels = getLabels();
@@ -281,19 +283,36 @@ export default function AddEntry() {
                     <View style={styles.formGroup}>
                         <Text style={styles.label}>{i18n.t('addEntry.date')}</Text>
                         <View style={styles.dateContainer}>
-                            <TouchableOpacity onPress={() => setShowDatePicker(true)} style={styles.dateButton}>
-                                <Text style={styles.dateButtonText}>{date.toLocaleDateString()}</Text>
-                            </TouchableOpacity>
-                            {showDatePicker && (
-                                <DateTimePicker
-                                    testID="dateTimePicker"
-                                    value={date}
-                                    mode="date"
-                                    is24Hour={true}
-                                    display="default"
-                                    onChange={onChangeDate}
-                                    themeVariant="dark"
-                                />
+                            {Platform.OS === 'ios' ? (
+                                <View style={styles.dateButton}>
+                                    <Text style={styles.dateButtonText}>{date.toLocaleDateString(language === 'es' ? 'es-ES' : 'en-US')}</Text>
+                                    <DateTimePicker
+                                        testID="dateTimePicker"
+                                        value={date}
+                                        mode="date"
+                                        display="compact"
+                                        onChange={onChangeDate}
+                                        themeVariant="dark"
+                                        style={styles.invisibleDatePicker}
+                                    />
+                                </View>
+                            ) : (
+                                <>
+                                    <TouchableOpacity onPress={() => setShowDatePicker(true)} style={styles.dateButton}>
+                                        <Text style={styles.dateButtonText}>{date.toLocaleDateString(language === 'es' ? 'es-ES' : 'en-US')}</Text>
+                                    </TouchableOpacity>
+                                    {showDatePicker && (
+                                        <DateTimePicker
+                                            testID="dateTimePicker"
+                                            value={date}
+                                            mode="date"
+                                            is24Hour={true}
+                                            display="default"
+                                            onChange={onChangeDate}
+                                            themeVariant="dark"
+                                        />
+                                    )}
+                                </>
                             )}
                         </View>
                     </View>
@@ -500,5 +519,15 @@ const styles = StyleSheet.create({
     backToCategoryText: {
         color: Colors.dark.primary,
         fontSize: 16,
+    },
+    invisibleDatePicker: {
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        width: '100%',
+        height: '100%',
+        opacity: 0.011,
     },
 });

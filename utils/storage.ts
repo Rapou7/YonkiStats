@@ -102,5 +102,55 @@ export const Storage = {
             console.error('Failed to remove favorite', e);
             throw e;
         }
+    },
+
+    async exportData(): Promise<{ entries: Entry[], favorites: Entry[] }> {
+        try {
+            const entries = await this.getEntries();
+            const favorites = await this.getFavorites();
+            return {
+                entries,
+                favorites,
+            };
+        } catch (e) {
+            console.error('Failed to export data', e);
+            throw e;
+        }
+    },
+
+    async importData(data: { entries: Entry[], favorites: Entry[] }): Promise<void> {
+        try {
+            // Validate data structure
+            if (!data || !Array.isArray(data.entries) || !Array.isArray(data.favorites)) {
+                throw new Error('Invalid data format');
+            }
+
+            // Validate entries have required fields
+            const isValidEntry = (entry: any): entry is Entry => {
+                return (
+                    typeof entry.id === 'string' &&
+                    typeof entry.date === 'string' &&
+                    typeof entry.amountSpent === 'number' &&
+                    typeof entry.grams === 'number' &&
+                    typeof entry.source === 'string' &&
+                    typeof entry.type === 'string' &&
+                    ['Alcohol', 'Tobacco', 'Weed', 'Food', 'Other'].includes(entry.category)
+                );
+            };
+
+            const allEntriesValid = data.entries.every(isValidEntry);
+            const allFavoritesValid = data.favorites.every(isValidEntry);
+
+            if (!allEntriesValid || !allFavoritesValid) {
+                throw new Error('Invalid entry format');
+            }
+
+            // Import data
+            await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(data.entries));
+            await AsyncStorage.setItem(STORAGE_KEY + '_favorites', JSON.stringify(data.favorites));
+        } catch (e) {
+            console.error('Failed to import data', e);
+            throw e;
+        }
     }
 };
