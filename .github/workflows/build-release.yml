@@ -153,8 +153,8 @@ jobs:
       
       - name: 🔨 Build iOS (No Code Sign)
         run: |
-          xcodebuild -workspace ios/${{ needs.version.outputs.app_name }}.xcworkspace \
-            -scheme ${{ needs.version.outputs.app_name }} \
+          xcodebuild -workspace "ios/${{ needs.version.outputs.app_name }}.xcworkspace" \
+            -scheme "${{ needs.version.outputs.app_name }}" \
             -configuration Release \
             -sdk iphoneos \
             -derivedDataPath ios/build \
@@ -166,11 +166,11 @@ jobs:
         working-directory: ios/build/Build/Products/Release-iphoneos
       
       - name: 📦 Move app to Payload
-        run: mv ${{ needs.version.outputs.app_name }}.app/ Payload
+        run: mv "${{ needs.version.outputs.app_name }}.app/" Payload
         working-directory: ios/build/Build/Products/Release-iphoneos
       
       - name: 🤐 Zip IPA
-        run: zip -qq -r -9 ${{ needs.version.outputs.app_name }}-v${{ needs.version.outputs.version }}.ipa Payload
+        run: zip -qq -r -9 "${{ needs.version.outputs.app_name }}-v${{ needs.version.outputs.version }}.ipa" Payload
         working-directory: ios/build/Build/Products/Release-iphoneos
       
       - name: 💾 Upload IPA artifact
