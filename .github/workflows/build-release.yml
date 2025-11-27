@@ -18,6 +18,7 @@ jobs:
       app_slug: ${{ steps.config.outputs.app_slug }}
       bundle_id: ${{ steps.config.outputs.bundle_id }}
       branch_name: ${{ steps.config.outputs.branch_name }}
+      workspace_name: ${{ steps.config.outputs.workspace_name }}
     steps:
       - name: 🏗 Checkout code
         uses: actions/checkout@v4
@@ -32,11 +33,14 @@ jobs:
           APP_SLUG=$(node -p "require('./app.json').expo.slug")
           BUNDLE_ID=$(node -p "require('./app.json').expo.ios.bundleIdentifier")
           BRANCH_NAME=$(echo ${GITHUB_REF#refs/heads/} | sed 's/[^a-zA-Z0-9._-]/-/g')
+          # Sanitize app name for workspace (remove spaces and special chars)
+          WORKSPACE_NAME=$(echo "$APP_NAME" | sed 's/ //g')
           
           echo "app_name=$APP_NAME" >> $GITHUB_OUTPUT
           echo "app_slug=$APP_SLUG" >> $GITHUB_OUTPUT
           echo "bundle_id=$BUNDLE_ID" >> $GITHUB_OUTPUT
           echo "branch_name=$BRANCH_NAME" >> $GITHUB_OUTPUT
+          echo "workspace_name=$WORKSPACE_NAME" >> $GITHUB_OUTPUT
           
           echo "� Building: $APP_NAME"
           echo "🏷️  Slug: $APP_SLUG"
@@ -153,8 +157,8 @@ jobs:
       
       - name: 🔨 Build iOS (No Code Sign)
         run: |
-          xcodebuild -workspace "ios/${{ needs.version.outputs.app_name }}.xcworkspace" \
-            -scheme "${{ needs.version.outputs.app_name }}" \
+          xcodebuild -workspace "ios/${{ needs.version.outputs.workspace_name }}.xcworkspace" \
+            -scheme "${{ needs.version.outputs.workspace_name }}" \
             -configuration Release \
             -sdk iphoneos \
             -derivedDataPath ios/build \
@@ -166,7 +170,7 @@ jobs:
         working-directory: ios/build/Build/Products/Release-iphoneos
       
       - name: 📦 Move app to Payload
-        run: mv "${{ needs.version.outputs.app_name }}.app/" Payload
+        run: mv "${{ needs.version.outputs.workspace_name }}.app/" Payload
         working-directory: ios/build/Build/Products/Release-iphoneos
       
       - name: 🤐 Zip IPA
